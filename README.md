@@ -1,2 +1,2 @@
-# CASE_STUDY.Google_Data_Analytics
+# CASE STUDY
 This case study is part of the Google Data Analytics Certificate
