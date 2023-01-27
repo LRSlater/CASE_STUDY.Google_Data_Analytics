@@ -1,0 +1,201 @@
+---
+title: "Cyclistic Bike-Share Analysis"
+author: "Lily Slater"
+date: '2023-01-25'
+output: html_document
+---
+
+
+### Business Task
+
+The task at hand is to design marketing strategies aimed at converting casual riders of the company Cyclistic into annual members. This task is motivated by the conclusion that annual members are more profitable than casual riders. Our team plans to accomplish this task by analyzing historical bike trip data to better understand the differences between annual members and casual riders. With our analysis, we will be identifying trends and insights that will prove to be pivotal for Cyclistic's continued growth.
+
+The first question we will tackle, How do annual members and casual riders use Cyclistic bikes differently?
+
+### Data Sources
+
+The data for this analysis comes from Cyclistic bicycles. It contains historical trip data from the previous 12-month trip data. The data is current, original, reliable and there are no credibility issues with this data as it comes directly from the company, additionally, bias is not a concern as data from all users will be included. To protect the privacy of Cyclistic riders, personal identifiable information will not be used.
+
+The data includes individual data sets for each month that contain each completed trip. These datasets will need to merged and organized before analysis.
+
+
+### Data Cleaning with Excel & R
+1. Merged monthly trip datasets to quarter, then to full 12-month set
+2. Cleaned unclear labeling, checked formatting and organized columns (deleted columns on latitude and longitude)
+3. Created two columns: Ride Length and Weekday
+
+```{r}
+# loading packages
+library(tidyverse)
+library(dplyr)
+library(vctrs)
+library(lubridate) 
+library(ggplot2) 
+#importing datasets
+q1_2022 <- read.csv("~/Downloads/Cycl/q1.csv")
+q2_2022 <- read_csv("~/Downloads/Cycl/q2.csv")
+q3_2022 <- read_csv("~/Downloads/Cycl/q3.csv")
+q4_2022 <- read_csv("~/Downloads/Cycl/q4.csv")
+
+q4_2022 <-  mutate(q4_2022, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type), started_at = as.factor(started_at), ended_at = as.factor(ended_at), start_lat = as.character(start_lat), start_lng = as.character(start_lng), end_lat = as.character(end_lat), end_lng = as.character(end_lng)) 
+
+q3_2022 <-  mutate(q3_2022, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type),  started_at = as.factor(started_at), ended_at = as.factor(ended_at), start_lat = as.character(start_lat), start_lng = as.character(start_lng), end_lat = as.character(end_lat), end_lng = as.character(end_lng))
+
+q2_2022 <-  mutate(q2_2022, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type),  started_at = as.factor(started_at), ended_at = as.factor(ended_at), start_lat = as.character(start_lat), start_lng = as.character(start_lng), end_lat = as.character(end_lat), end_lng = as.character(end_lng)) 
+
+q1_2022 <-  mutate(q1_2022, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type),  started_at = as.factor(started_at), ended_at = as.factor(ended_at), start_lat = as.character(start_lat), start_lng = as.character(start_lng), end_lat = as.character(end_lat), end_lng = as.character(end_lng)) 
+
+# Stack individual quarter's data frames into one big data frame
+all_trips <- bind_rows(q1_2022, q2_2022, q3_2022, q2_2022)
+# removing irrelevant columns
+all_trips <- all_trips %>%  
+  select(-c(start_lat, start_lng, end_lat, end_lng))
+    
+# Inspecting the new table that has been created
+#List of column names
+colnames(all_trips)  
+# number of rows and columns:
+dim(all_trips) 
+
+# Statistical summary of data. Mainly for numerics
+summary(all_trips)
+
+#We will add "ride_length" to the entire dataframe for consistency.
+all_trips$ride_length <- difftime(all_trips$ended_at,all_trips$started_at)
+is.factor(all_trips$ride_length)
+all_trips$ride_length <- as.numeric(as.character(all_trips$ride_length))
+is.numeric(all_trips$ride_length)
+
+# The dataframe includes entries when bikes were taken out of docks and checked for quality
+
+# We will create a new version of the dataframe (v2) with these trips removed
+all_trips_v <- all_trips[!(all_trips$ride_length<0),]
+#Removing rows with NAs
+all_trips_v2 <- all_trips_v[complete.cases(all_trips_v[15]),]
+
+```
+
+### Analysis Summary: 
+
+Descriptive Analysis
+```{r}
+summary(all_trips_v2)
+
+# descriptives on ride length (seconds)
+mean(all_trips_v2$ride_length, na.rm = TRUE) 
+median(all_trips_v2$ride_length, na.rm = TRUE) 
+sd(all_trips_v2$ride_length, na.rm = TRUE) 
+max(all_trips_v2$ride_length, na.rm = TRUE) #longest ride
+min(all_trips_v2$ride_length, na.rm = TRUE) #shortest ride
+
+```
+
+Ride length varies substantially.From 0 secs to 604hrs (approx 25 days)
+
+#### How do annual members and casual riders use Cyclistic bikes differently?
+
+
+```{r}
+#How many riders are members or casual?
+table(all_trips_v2$member_casual)
+
+
+# Compare ride length of members and casual users
+#mean:
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = mean)
+#median:
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = median)
+#max:
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = max)
+#min
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = min)
+
+```
+There are 2743223 casual riders and 3621511 members.
+
+Here we can see that on average casual riders are using the bikes for longer periods of time.
+
+
+Which day of the week are casual riders and members riding more?
+```{r}
+
+all_trips_v2$day_of_week <- ordered(all_trips_v2$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+
+# See the average ride time by each day for members vs casual users
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual + all_trips_v2$day_of_week, FUN = mean)
+```
+It looks like duration each day for each rider type is quite consistent with Saturday and Sunday having longer ride lengths on average.
+
+```{r}
+# ridership data by type and weekday
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>%  #creates weekday field using wday()
+  group_by(member_casual, weekday) %>%  #groups by rider type and weekday
+  summarise(number_of_rides = n()							#calculates the number of rides and average duration 
+            ,average_ride_length = mean(ride_length)) %>% 		# calculates the average duration
+  arrange(member_casual, weekday)	
+```
+
+
+### Visualizations and Key Findings
+
+##### Visualize number of rides by rider type
+```{r}
+
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  
+  group_by(member_casual, weekday) %>% 
+  
+  summarise(number_of_rides = n()
+            , average_ride_length = mean(ride_length)) %>% 
+  
+  arrange(member_casual, weekday)  %>% 
+  
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge")+
+  labs(fill = "Member Type", title = "Number of Rides by Rider Type", x= NULL, y = "Number of Rides " )
+
+```
+
+
+##### Visualize average duration by Rider Type
+```{r}
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge")+
+   labs(fill = "Member Type", title = "Average Ride length by Rider Type", x= NULL, y = "Average Length of Rides " )
+
+```
+
+
+### Summary and Recommendations
+
+```{r}
+counts <- aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual + all_trips_v2$day_of_week, FUN = mean)
+write.csv(counts, file = '~/Downloads/Cycl/avg_ride_length.csv')
+
+```
+
+
+Summary: The bike share company has found that members use the bikes more frequently than casual users, particularly during the week. However, casual riders tend to use the bikes for longer periods of time than members. Both members and casual users have similar usage patterns on weekdays, but on weekends, number of rides and ride lengths tend to be longer.
+
+Recommendations:
+
+*Offer incentives for casual users to become members, such as discounts on long-term rentals or free additional usage time after a certain number of rides.
+
+*Consider offering different membership options, such as a "weekend warrior" plan for individuals who primarily use the bikes on Saturdays and Sundays, such as a weekend pass that includes a certain number of rides at a discounted rate.
+
+* Create a membership option where every 10th weekday ride is free.
+
+
+
